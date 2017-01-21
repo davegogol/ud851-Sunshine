@@ -219,10 +219,22 @@ public class MainActivity extends AppCompatActivity implements ForecastAdapterOn
             mForecastAdapter.setWeatherData(null);
             loadWeatherData();
             return true;
+        }else if(id == R.id.action_open_map){
+            Uri uri = null;
+
+            showMap(uri);
         }
 
-        // TODO (2) Launch the map when the map menu item is clicked
+        // COMPLETED (2) Launch the map when the map menu item is clicked
 
         return super.onOptionsItemSelected(item);
+    }
+
+    private void showMap(Uri uri){
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(uri);
+        if(intent.resolveActivity(getPackageManager()) != null){
+            startActivity(intent);
+        }
     }
 }
