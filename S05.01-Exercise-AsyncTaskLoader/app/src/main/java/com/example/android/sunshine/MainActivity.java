@@ -18,11 +18,14 @@ package com.example.android.sunshine;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.AsyncTaskLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -38,13 +41,16 @@ import com.example.android.sunshine.utilities.OpenWeatherJsonUtils;
 
 import java.net.URL;
 
-// TODO (1) Implement the proper LoaderCallbacks interface and the methods of that interface
-public class MainActivity extends AppCompatActivity implements ForecastAdapterOnClickHandler {
+// COMPLETED (1) Implement the proper LoaderCallbacks interface and the methods of that interface
+public class MainActivity extends AppCompatActivity implements ForecastAdapterOnClickHandler, LoaderManager.LoaderCallbacks<String[]> {
 
     private static final String TAG = MainActivity.class.getSimpleName();
+    public static final String LOCATION = "LOCATION";
 
     private RecyclerView mRecyclerView;
     private ForecastAdapter mForecastAdapter;
+
+    private static final int WEATHER_SEARCH_LOADER = 1;
 
     private TextView mErrorMessageDisplay;
 
@@ -98,8 +104,10 @@ public class MainActivity extends AppCompatActivity implements ForecastAdapterOn
          */
         mLoadingIndicator = (ProgressBar) findViewById(R.id.pb_loading_indicator);
 
-        // TODO (7) Remove the code for the AsyncTask and initialize the AsyncTaskLoader
+        // COMPLETED (7) Remove the code for the AsyncTask and initialize the AsyncTaskLoader
         /* Once all of our views are setup, we can load the weather data. */
+
+        getSupportLoaderManager().initLoader(WEATHER_SEARCH_LOADER, null, this);
         loadWeatherData();
     }
 
@@ -108,16 +116,21 @@ public class MainActivity extends AppCompatActivity implements ForecastAdapterOn
      * background method to get the weather data in the background.
      */
     private void loadWeatherData() {
+
+        LoaderManager loaderManager =  getSupportLoaderManager();
+        Loader<String[]> loader = loaderManager.getLoader(WEATHER_SEARCH_LOADER);
         showWeatherDataView();
 
-        String location = SunshinePreferences.getPreferredWeatherLocation(this);
-        new FetchWeatherTask().execute(location);
+        if(loader == null)
+            loaderManager.initLoader(WEATHER_SEARCH_LOADER, null, this);
+        else
+            loaderManager.restartLoader(WEATHER_SEARCH_LOADER, null, this);
+
     }
 
-    // TODO (2) Within onCreateLoader, return a new AsyncTaskLoader that looks a lot like the existing FetchWeatherTask.
-    // TODO (3) Cache the weather data in a member variable and deliver it in onStartLoading.
+    // COMPLETED (3) Cache the weather data in a member variable and deliver it in onStartLoading.
 
-    // TODO (4) When the load is finished, show either the data or an error message if there is no data
+    // COMPLETED (4) When the load is finished, show either the data or an error message if there is no data
 
     /**
      * This method is overridden by our MainActivity class in order to handle RecyclerView item
@@ -162,52 +175,79 @@ public class MainActivity extends AppCompatActivity implements ForecastAdapterOn
         mErrorMessageDisplay.setVisibility(View.VISIBLE);
     }
 
-    // TODO (6) Remove any and all code from MainActivity that references FetchWeatherTask
-    public class FetchWeatherTask extends AsyncTask<String, Void, String[]> {
+    // COMPLETED (2) Within onCreateLoader, return a new AsyncTaskLoader that looks a lot like the existing FetchWeatherTask.
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            mLoadingIndicator.setVisibility(View.VISIBLE);
-        }
+    @Override
+    public Loader onCreateLoader(int id, final Bundle args) {
 
-        @Override
-        protected String[] doInBackground(String... params) {
+        return new AsyncTaskLoader<String[]>(this) {
 
-            /* If there's no zip code, there's nothing to look up. */
-            if (params.length == 0) {
-                return null;
+            private String [] cachedResults;
+
+            @Override
+            protected void onStartLoading() {
+                super.onStartLoading();
+
+                mLoadingIndicator.setVisibility(View.VISIBLE);
+
+                if(cachedResults != null){
+                    showWeatherDataView();
+                    deliverResult(cachedResults);
+                } else
+                    forceLoad();
             }
 
-            String location = params[0];
-            URL weatherRequestUrl = NetworkUtils.buildUrl(location);
+            @Override
+            public String[] loadInBackground() {
+                String location = SunshinePreferences.getPreferredWeatherLocation(MainActivity.this);
 
-            try {
-                String jsonWeatherResponse = NetworkUtils
-                        .getResponseFromHttpUrl(weatherRequestUrl);
+                if(location == null || TextUtils.isEmpty(location))
+                    return null;
 
-                String[] simpleJsonWeatherData = OpenWeatherJsonUtils
-                        .getSimpleWeatherStringsFromJson(MainActivity.this, jsonWeatherResponse);
+                URL weatherRequestUrl = NetworkUtils.buildUrl(location);
 
-                return simpleJsonWeatherData;
+                try {
+                    String jsonWeatherResponse = NetworkUtils
+                            .getResponseFromHttpUrl(weatherRequestUrl);
 
-            } catch (Exception e) {
-                e.printStackTrace();
-                return null;
+                    String[] simpleJsonWeatherData = OpenWeatherJsonUtils
+                            .getSimpleWeatherStringsFromJson(MainActivity.this, jsonWeatherResponse);
+
+                    return simpleJsonWeatherData;
+
+                } catch (Exception e) {
+                    Log.e(TAG, "Exception is thrown!");
+                    return null;
+                }
             }
-        }
 
-        @Override
-        protected void onPostExecute(String[] weatherData) {
-            mLoadingIndicator.setVisibility(View.INVISIBLE);
-            if (weatherData != null) {
-                showWeatherDataView();
-                mForecastAdapter.setWeatherData(weatherData);
-            } else {
-                showErrorMessage();
+            @Override
+            public void deliverResult(String[] data) {
+                cachedResults = data;
+                mLoadingIndicator.setVisibility(View.INVISIBLE);
+                super.deliverResult(data);
             }
+        };
+    }
+
+    @Override
+    public void onLoadFinished(Loader loader, String[] data) {
+        mLoadingIndicator.setVisibility(View.INVISIBLE);
+        if (data != null) {
+            showWeatherDataView();
+            mForecastAdapter.setWeatherData(data);
+        } else {
+            showErrorMessage();
         }
     }
+
+    @Override
+    public void onLoaderReset(Loader loader) {
+
+    }
+
+    // COMPLETED (6) Remove any and all code from MainActivity that references FetchWeatherTask
+
 
     /**
      * This method uses the URI scheme for showing a location found on a
@@ -247,11 +287,11 @@ public class MainActivity extends AppCompatActivity implements ForecastAdapterOn
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         int id = item.getItemId();
+        // COMPLETED (5) Refactor the refresh functionality to work with our AsyncTaskLoader
 
-        // TODO (5) Refactor the refresh functionality to work with our AsyncTaskLoader
         if (id == R.id.action_refresh) {
             mForecastAdapter.setWeatherData(null);
-            loadWeatherData();
+            getSupportLoaderManager().restartLoader(WEATHER_SEARCH_LOADER, null, this);
             return true;
         }
 

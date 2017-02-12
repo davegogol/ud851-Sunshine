@@ -155,7 +155,6 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         protected String[] doInBackground(String... params) {
-
             /* If there's no zip code, there's nothing to look up. */
             if (params.length == 0) {
                 return null;

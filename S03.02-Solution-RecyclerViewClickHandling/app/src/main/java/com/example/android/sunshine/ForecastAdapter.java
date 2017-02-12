@@ -68,7 +68,7 @@ public class ForecastAdapter extends RecyclerView.Adapter<ForecastAdapter.Foreca
         public ForecastAdapterViewHolder(View view) {
             super(view);
             mWeatherTextView = (TextView) view.findViewById(R.id.tv_weather_data);
-            // COMPLETED (7) Call setOnClickListener on the view passed into the constructor (use 'this' as the OnClickListener)
+            // COMPLETED (7) Call setOnClickListener on the view passed into the constmovieTitleructor (use 'this' as the OnClickListener)
             view.setOnClickListener(this);
         }
 
